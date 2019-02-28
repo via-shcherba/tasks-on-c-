@@ -1,0 +1,281 @@
+/*C#*/
+/*Лабораторная работа 6. Разработка программ по работе с файлами
+Создать консольное приложение, позволяющее 
+- сохранять вводимые данные в текстовом файле, 
+- просматривать, корректировать, удалять записи из файла;
+- выводить результаты работы программы на экран и сохранять в другой текстовый файл;
+Иметь возможность делать выборку данных по различным критериям. 
+При сохранении использовать механизм сериализации. 
+В класс добавить поле дата создания объекта. 
+Это поле не сериализовать, а при десериализации заново устанавливать по системной дате.*/
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Threading;
+using System.Text.RegularExpressions;
+
+
+
+
+namespace lerning
+{
+        [Serializable]
+    class Data
+    {       
+        [NonSerialized]
+        public string date;
+
+        [NonSerialized]
+        BinaryFormatter formatter = new BinaryFormatter();
+
+        char[] _text;
+        public char[] text 
+        {
+            get { return _text; }
+            set { _text = value; }
+        }
+        public Data()
+        {
+            text = new char[1000];
+            this.date = "";
+        }
+        public Data(char[] text)
+        {           
+            this.text = text;
+            this.date = Convert.ToString(DateTime.Today);
+        }
+        public void Display()
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine(" {0} ",date);
+            foreach(char el in text){
+                Console.Write(el);
+            }
+            Console.ResetColor();
+        }
+        public void CreateFile(string path, Data data)
+        {
+            using (FileStream fs = new FileStream(path, FileMode.OpenOrCreate))
+            {
+                formatter.Serialize(fs, data);
+            }
+        }
+        public void GetFromFile(string path)
+        {
+            using (FileStream fs = new FileStream(path, FileMode.OpenOrCreate))
+            {
+                Data newData = (Data)formatter.Deserialize(fs);
+                newData.date = Convert.ToString(DateTime.Today);
+                newData.Display();
+            }
+        }
+        public char[] SelectFromFile(string path)
+        {
+            using (FileStream fs = new FileStream(path, FileMode.OpenOrCreate))
+            {
+                Data newData = (Data)formatter.Deserialize(fs);
+                newData.date = Convert.ToString(DateTime.Today);
+                return newData.text;
+            }
+        }
+        public List<string> Separator(char[] arr) //метод разделения массива символов на слова по пробелам
+        {
+            
+            List<string> res = new List<string>();
+            string tmp = "";
+           
+            for (int i = 0; i < arr.Length; i++)
+            {
+                if (!arr[i].Equals(' '))
+                {
+                    tmp += arr[i];
+                }
+                else
+                {
+                    res.Add(tmp);                                    
+                    tmp = "";                   
+                }
+            }
+            return res;
+        }
+        public void RegularExpres(List<string> s, string reg){  //метод поиска слов с помощью регулярного выражения
+            Regex regex = new Regex(@reg);
+            int control=0;
+            for (int i = 0; i < s.Count; i++)
+            {
+                MatchCollection matches = regex.Matches(s[i]);
+               
+                if (matches.Count > 0)
+                {
+                    foreach (Match match in matches)
+                    {
+                        Console.WriteLine(match.Value);
+                        control++;
+                    }
+                }                              
+            }
+           if(control<1) Console.WriteLine("Nothing found!");
+           
+        }
+        public static char[] ReadLine()
+        {
+            Stream inputStream = Console.OpenStandardInput(1000);
+            byte[] bytes = new byte[1000];
+            int outputLength = inputStream.Read(bytes, 0, 1000);
+            char[] chars = new char [1000];
+            chars = Encoding.UTF7.GetChars(bytes, 0, outputLength);
+            return chars;
+        }
+    }
+        
+    class Program
+    {
+        
+        static void Main(string[] args)
+        {
+            Console.WriteLine(" <<< CONSOLE PROGRAM C# >>> \n");
+
+            char[] tmp = new char[1000];
+
+            int ans = 8;
+            Data data = new Data();
+            string path = "";
+            int preans = 0;          
+
+            while(ans > 0)
+            {
+                switch(ans)
+                {
+                    case 8:
+                        Console.WriteLine(" ||| Create file with data: 1 ||| Open file: 2 ||| Exit 0 \n");
+                        preans = Convert.ToInt32(Console.ReadLine());
+                        if (preans > 2)
+                        {
+                            Console.WriteLine(" ERROR! \n");
+                            ans = 8;
+                        }
+                        else
+                        {
+                            ans = preans;
+                        }
+                        break;
+                    case 1:
+                        Console.WriteLine(" ENTER YOUR DATATEXT: \n");
+                        char []datatext = new char[1000];
+                        datatext = Data.ReadLine();
+                        data = new Data(datatext);
+                        ans = 9;                       
+                        break;
+                    case 9:
+                        Console.WriteLine(" ENTER PATH AND FILENAME: \n");
+                        path = Console.ReadLine();
+
+                        data.CreateFile(path, data);   //create file
+
+                        Console.WriteLine(" FILE {0} CREATED! \n", path);
+                        ans = 8;
+                        break;
+                    case 2:
+                        Console.WriteLine(" ENTER PATH OF FILE: \n");
+                        path = Console.ReadLine();
+                        if (!File.Exists(path))
+                        {
+                            Console.WriteLine(" THIS FILE NOT EXISTS! \n");
+                            ans = 2;
+                        }
+                        else
+                        {
+                            ans = 3;
+                        }
+                        break;
+                    case 3:
+                        Console.WriteLine(" ||| View: 4 ||| Edit: 5 ||| Delete: 6 ||| File selection: 7 ||| Go to main menu: 8 |||\n");
+                        preans = Convert.ToInt32(Console.ReadLine());
+                        if (preans < 4 || preans > 8)
+                        {
+                            Console.WriteLine(" ERROR! \n");
+                            ans = 3;
+                        }
+                        else
+                        {
+                            ans = preans;
+                        }
+                        break;
+                    case 4:
+                        Console.WriteLine(" VIEW \n");
+                        data.GetFromFile(path);
+                        ans = 3;
+                        break;
+                    case 5:
+                        //Edit
+                        Console.Clear();
+                        Console.WriteLine(" EDITING \n");
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        data.GetFromFile(path);
+                        Console.SetCursorPosition(1, 4);
+                        tmp = Data.ReadLine();                     
+                        data = new Data(tmp);                                              
+                        ans = 10;
+                        break;
+                    case 6:
+                        //Delete
+                        Console.WriteLine(" Are you sure? Y / N");
+                        string str = Console.ReadLine();
+                        if (str.Equals("Y"))
+                        {
+                            File.Delete(path);
+                            Console.WriteLine(" File: {0} DELETED!", path);
+                            ans = 8;
+                        }
+                        else
+                        {
+                            ans = 3;
+                        }
+                        break;
+                    case 7:
+                        //File selection
+                        Console.WriteLine(" ||| Selection data from file |||");
+                        Console.WriteLine(" ENTER REGULAR EXPRESSION (example: '^c\\w*')");
+                        string regular = Console.ReadLine();
+                        //string regular = "^c\\w*";
+                        List<string> arr = new List<string>();
+                        arr = data.Separator(data.SelectFromFile(path));
+                        data.RegularExpres(arr, regular);
+                        ans = 3;
+                        
+                        break;
+                    case 10:
+                        Console.WriteLine(" ||| Save in this file: 10 ||| Save as: 9 ||| Cancel: 3 |||\n");
+                        int tmpi = Convert.ToInt32(Console.ReadLine());
+                        if (tmpi == 10 || tmpi == 9 || tmpi == 3)
+                        {
+                            if (tmpi == 10)
+                            {
+                                Console.WriteLine("Saved in exist file!");
+                                data.CreateFile(path, data);
+                                ans = 8;
+                            }
+                            if (tmpi!=10) ans = tmpi;
+                        }
+                        else
+                        {
+                            Console.WriteLine(" ERROR! \n");
+                            ans = 10;
+                        }
+                        break;
+                }
+            }
+            Console.WriteLine(" TO EXIT PUSH ENTER! ");
+           
+            Console.ReadLine();
+        }
+    }
+}
+
+
