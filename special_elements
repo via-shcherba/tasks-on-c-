@@ -1,0 +1,76 @@
+/*C#*/
+/*Дана прямоугольная матрица. Определить количество особых элементов массива, считая его элемент особым,
+если он больше суммы остальных элементов его столбца. */
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace lerning
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            int rows = 5;
+            int columns = 10;
+            int specialElem;
+            int [,] array = new int [rows, columns];
+            Random rnd = new Random();
+            Console.WriteLine("Matrix \n");
+          
+            for(int i=0;i<rows;i++){
+                for (int j = 0; j < columns;j++)
+                {
+                    array[i, j] = rnd.Next(0, 10);
+                    Console.Write("{0} ",array[i, j]);
+                }
+                Console.WriteLine("\n");
+            }
+            Console.WriteLine("\n\n");
+            sortColumn(ref array, rows, columns);  //сортировка
+            specialElem = searchSpecialElem(array, rows, columns); 
+            Console.WriteLine("Total special elements = {0}", specialElem);
+            Console.ReadLine();
+        }
+        static void sortColumn(ref int [,] Array, int Row, int Column) //метод сортировки выбором для элементов столбцов матрицы
+        {
+            
+            for (int i = 0; i < Column; i++)  //перебор столбцов матрицы
+            {
+                int path;
+                for (int j = 0; j < Row; j++)       //начальный элемент столбца
+                {
+                    for (int k = j + 1; k <= Row - 1; k++) //последующий элемент столбца
+                    {
+                        if (Array[j,i] < Array[k,i]) //если последующий элемент больше предыдущего
+                        {                           // то предыдущий запоминаем, а на его место ставим последующий
+                            path = Array[j, i];  
+                            Array[j, i] = Array[k, i];
+                            Array[k, i] = path;
+                        }                  //максимальный элемент занимает позицию 0
+                    }
+                }
+            }
+                
+        }
+        static int searchSpecialElem(int [,] Array, int Row, int Column) //метод определения количества особых элементов
+        {
+            int[] arraySum = new int[Column]; // массив хранения сумм элементов столбцов
+            int i, j;
+            int sumSpecialElem = 0;            // используем отсортированный массив
+           
+            for (i = 0; i < Column; i++)
+            {
+                for (j = 1; j < Row; j++ )  //в нулемой строке лежат максимальные элементы столцов - ее пропускаем
+                {
+                    arraySum[i] += Array[j, i];  //начиная с 1 первой строки суммируем столбцы
+                }
+                if (Array[0, i] > arraySum[i]) sumSpecialElem++; //если максимальный элемент столбца больше суммы остальных его элементов, то +1
+            }
+            return sumSpecialElem;
+        }
+    }
+}
