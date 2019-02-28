@@ -1,0 +1,132 @@
+/*C#*/
+/*Имеется следующее правило шифрования: каждая буква русского алфавита заменяется на букву
+идущую через 3 после нее (например, а -> д). Исходную строку назовем источник, результирующую – шифровка.
+Напишите программу для создания шифровки и получения источника. */
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+
+namespace lerning
+{
+    class Codding
+    {
+        static int _size;
+        public static int size
+        {
+            get { return _size; }
+            set { _size = value; }
+        }
+
+        string text;
+        char[] symbol;
+        public Codding(string value)
+        {
+            text = value;
+            symbol = new char[size];
+        }
+        public void Encoder() //метод шифрования
+        {
+
+            int number;
+            for (int i = 0; i < size; i++)
+            {
+                number = Convert.ToInt32(text[i]);
+                if (number == 32)
+                {
+                    number = 93;
+                }
+                else
+                {
+                    number = number + 4;
+                }
+                symbol[i] = Convert.ToChar(number);
+            }
+
+        }
+        public void Decrypter() //метод дешифрования
+        {
+            int number;
+            for (int i = 0; i < size; i++)
+            {
+                number = Convert.ToInt32(text[i]);
+                if (number == 93)
+                {
+                    number = 32;
+                }
+                else
+                {
+                    number = number - 4;
+                }
+                symbol[i] = Convert.ToChar(number);
+            }
+        }
+        public void Display()
+        {
+            for (int i = 0; i < size; i++)
+            {
+                Console.Write(symbol[i]);
+            }
+        }
+    }
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.WriteLine(" THIS IS ENIGMA \n");
+            try
+            {
+                int ans = 0;
+                string read;
+                do
+                {
+
+                    switch (ans)
+                    {
+                        case 0:
+                            Console.WriteLine(" Check please function: \n");
+                            Console.WriteLine(" 1 - get encription | 2 - get source | 3 - exit \n");
+                            ans = Convert.ToInt32(Console.ReadLine());
+                            break;
+                        case 1:
+                            Console.WriteLine("\n Please enter source! \n");
+                            read = (Console.ReadLine()).Trim();
+                            Codding.size = read.Length;
+                            Codding source = new Codding(read);
+                            Console.WriteLine("\n Encription: \n");
+                            source.Encoder();
+                            source.Display();
+                            Console.WriteLine("\n\n Press - 0 to enter to the main menu! \n");
+                            ans = Convert.ToInt32(Console.ReadLine());
+                            break;
+                        case 2:
+                            Console.WriteLine("\n Please enter your encription! \n");
+                            read = (Console.ReadLine()).Trim();
+                            Codding.size = read.Length;
+                            Codding encr = new Codding(read);
+                            Console.WriteLine("\n Source: \n");
+                            encr.Decrypter();
+                            encr.Display();
+                            Console.WriteLine("\n\n Press - 0 to enter to the main menu! \n");
+                            ans = Convert.ToInt32(Console.ReadLine());
+                            break;
+                        case 3:
+                            Console.WriteLine("\n EXIT! ");
+                            return;
+                    }
+                } while (ans <= 3);
+            }
+            catch
+            {
+                Console.WriteLine(" ERROR! \n");
+            }
+            Console.ReadLine();
+        }
+
+
+    }
+}
