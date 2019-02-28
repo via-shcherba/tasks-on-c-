@@ -1,0 +1,506 @@
+/*c++*/
+/*
+Постановка задачи:
+В текстовом файле  храниться информация о сбыте готовой продукции хлебозавода за месяц по позициям (6 полей информации: id, наименование, вес, цена, продано (шт), возвращено (шт)).
+При запуске программы будет появляться приветствие с предложением ввести путь текстового файла для считывания.
+Если считывание не получилось – будет выдавать ошибку с предложением попробовать еще раз.
+Если считывание произошло – на экране отобразится соответствующее сообщение и пункты меню.
+При считывании информации из файла, будут добавлены новые поля информации: чистые продажи(продано - возврат), процент возврата и стоимость (чистые продажи * цену).
+ Пункты меню:
+1.Вывести таблицу с исходными данными
+2.Посчитать общий товарооборот в рублях и тоннах
+2.Посчитать общий возврат в рублях и тоннах
+3.Выявить самые не эффективные позиции (когда возврат более 10%)
+4.Выявить 3 самые популярные позиции
+5.Найти позицию по ID
+7.Записать полученную информацию в файл
+8.Выход
+
+При выборе любого пункта меню, будет выводится предложение «вернуться  в главное меню»
+
+Прилагаются:
+- исходный код;
+- текстовый файл с исходными данными (data.txt);
+
+*ВНИМАНИЕ! В СВОЙСТВАХ КОНСОЛИ НЕОБХОДИМО УСТАНОВИТЬ ШРИФТ LUCIDA CONSOLE!
+*/
+
+#include <conio.h>
+#include <cstring>
+#include <iomanip>
+#include <windows.h>
+#include <iostream>
+#include <math.h>
+#include <fstream>
+
+using namespace std;
+struct product{  //структура для ввода информации
+	int id;         //артикул
+	char name[40];  //наименование
+	double weight;  //вес товара
+	double price;   //цена
+	double sold;     //отгружено
+	double returned; //возвращено
+	double cleanSold; //продано
+	double percent;   //процент возврата
+	double soldCost;  //продано на сумму
+	double soldWeight; //продано тонн
+};
+
+struct total{  //структура для вывода информации
+	double salesCost;     //общий товарооборот в руб.
+	double salesWeight;   //общий товарооборот в т.
+	double costReturned;   //общий возврат в руб.
+	double weightReturned; //общий возврат в т.
+	double averPer;      //средний процент возврата
+	int idloss[20];    // массив id с не эффективными позициями
+	int idMostPop[3];  // массив id с наиболее популярными позициями
+} report;
+
+void prindHeadings(){  //функция вывода заголовков
+	cout << endl;
+	cout << " " << setw(5) << "Артикул";
+	cout << " " << setw(30) << "Наименование";
+	cout << " " << setw(7) << "Вес,кг";
+	cout << " " << setw(7) << "Цена,р";
+	cout << " " << setw(10) << "Продали,шт";
+	cout << " " << setw(7) << "Возв.,шт";
+	cout << " " << setw(10) << "Чист.пр,шт";
+	cout << " " << setw(10) << "Возвр.%";
+	cout << " " << setw(10) << "Т/О, р.";
+	cout << " " << setw(10) << "Т/О, т." << endl;
+	cout << endl;
+}
+
+void printStruct(struct product *Data, int Size){  //функция вывода данных на экран
+	for (int i = 0; i<Size-1; i++) {
+		cout  << "  " << Data[i].id; 
+		cout  << " " << setw(35) << Data[i].name; 
+		cout << setw(7) << Data[i].weight; 
+		cout << setw(7) << Data[i].price; 
+		cout << setw(7) << Data[i].sold; 
+		cout << setw(10) << Data[i].returned; 
+		cout << setw(12) << Data[i].cleanSold; 
+		cout << setw(10) << Data[i].percent; 
+		cout << setw(12) << Data[i].soldCost; 
+		cout << setw(12) << Data[i].soldWeight; 
+		cout << endl;
+	}
+}
+
+void weightAndCost(product *arr, total *Report,int Size); 
+void sumReturned(product *arr, total *Report,int Size);
+void positionLost(product *arr, total *Report,int Size, int *newsize);
+void searchProduct(product *arr,int Size, int ID);
+void mostPopular(product *arr, total *Report,int Size);
+
+int main(){
+	setlocale(LC_ALL, "Russian");
+	SetConsoleCP(1251);
+	SetConsoleOutputCP(1251);
+
+	char pathfrom[100]; //путь к файлу для чтения
+	char pathin[100]; // путь к файлу для записи
+	int size = 1000; //это предварительное количество строк, далее система уменьшит сама
+	
+	int sizeArrIdLost = 0;  //размер масива с неэффективными позициями
+	int *psa = &sizeArrIdLost;
+	cout << endl;
+	cout << "      ВАС ПРИВЕТСТВУЕТ МАСТЕР-АНАЛИТИК ПРОДАЖ!  " << endl;
+	cout << endl;
+	cout << " Для начала работы укажите путь к файлу с данными___  ";
+	cin >> pathfrom;
+	cout << endl;
+			
+	product *data = new product [size];  //структура ввода данных из файла
+	product *PD = data;
+	total *PR = &report; //указатель на структуру вывода данных в файл
+	
+	ifstream from; 
+	from.open(pathfrom);
+	if (!from.is_open()){
+		cout << endl;
+		cout << " ПУТЬ УКАЗАН НЕ ВЕРНО! " << endl;
+		cout << " Попробуйте начать заново!" << endl;
+	}else{
+		cout << endl;
+		cout << " ФАЙЛ БЫЛ УСПЕШНО ПРОЧИТАН! " << endl;
+		cout << endl;
+		cout << endl;
+		//ввод данных из техтового файла в структуру
+		for (int i = 0; i<size-1; i++){ 
+			if(!from) size = i;  //уточнение количества строк массива данных
+			from >> data[i].id;
+			from >> data[i].name;
+			from >> data[i].weight;
+			from >> data[i].price;
+			from >> data[i].sold;
+			from >> data[i].returned;
+			data[i].cleanSold = data[i].sold - data[i].returned;
+			data[i].percent = (100 / (data[i].weight * data[i].sold)) *  (data[i].weight * data[i].returned);
+		    data[i].soldCost = data[i].cleanSold * data[i].price;
+			data[i].soldWeight = (data[i].cleanSold * data[i].weight) / 1000;
+		}
+		from.close(); //закрытие файла чтения
+		int choice = 0;
+		do{
+			switch(choice){
+			case 0:
+			cout << " МЕНЮ  " << endl;
+			cout << endl;
+			cout << " Для продолжения выберете пункт меню: " << endl;
+			cout << endl;
+			cout << " 1.Вывести исходную таблицу на экран " << endl;
+			cout << " 2.Посчитать общий товарооборот в рублях и тоннах " << endl;
+			cout << " 3.Посчитать общий возврат в рублях и тоннах" << endl;
+			cout << " 4.Выявить самые не эффективные позиции (возврат >10%) " << endl;
+			cout << " 5.Выявить 3 самые популярные позиции" << endl;
+			cout << " 6.Найти позицию по ID" << endl;
+			cout << " 7.Вывести полученные данные в файл" << endl;
+			cout << endl;
+			cout << " 8.ВЫХОД ИЗ ПРОГРАММЫ" << endl;
+				break;
+			case 1:
+				cout << endl;
+				cout << endl;
+				cout << " ДАННЫЕ О СБЫТЕ ГОТОВОЙ ПРОДУКЦИИ ХЛЕБОЗАВОДА ЗА МЕСЯЦ " << endl;
+				cout << endl;
+				cout << endl;
+				//вывод данных на экран
+				prindHeadings(); //заголовки полей
+				printStruct(PD, size); //вывод данных
+				cout << endl;
+				cout << endl;
+				cout << " Для выхода в главное меню нажмите 0 " << endl;
+				break;
+			case 2:
+				cout << endl;
+				cout << endl;
+				cout << " РАСЧЕТ ОБЩЕГО ТОВАРООБОРОТА В РУБЛЯХ И ТОННАХ " << endl;
+				cout << endl;
+				cout << endl;
+				cout << " Чистая отгрузка (за вычетом возврата) составила: " << endl;
+				cout << endl;
+				
+				weightAndCost(PD, PR,size); //ф-я расчета общего товарооборота
+
+				cout << " "	<< PR->salesCost << " руб." << endl;
+				cout << " "	<< fixed << setprecision(2) << PR->salesWeight << " т." << endl;
+				cout << endl;
+				cout << endl;
+				cout << " Для выхода в главное меню нажмите 0 " << endl;
+				break;
+			case 3:
+				cout << endl;
+				cout << endl;
+				cout << " РАСЧЕТ ОБЩЕГО ВОЗВРАТА В РУБЛЯХ И ТОННАХ " << endl;
+				cout << endl;
+				cout << endl;
+				cout << " Общий возврат за месяц составил: " << endl;
+				cout << endl;
+
+				sumReturned(PD, PR,size); //ф-я расчета общего возврата
+
+				cout << " "	<< PR->costReturned << " руб." << endl;
+				cout << " "	<< fixed << setprecision(2) << PR->weightReturned << " т." << endl;
+				cout << " Средний возврат: " << PR->averPer << " %" << endl;
+				cout << endl;
+				cout << endl;
+				cout << " Для выхода в главное меню нажмите 0 " << endl;
+				break;
+			case 4:
+				cout << endl;
+				cout << endl;
+				cout << " САМЫЕ НЕ ЭФФЕКТИВНЫЕ ПОЗИЦИИ " << endl;
+				cout << endl;
+				cout << endl;
+				cout << " *Позиции, где возврат более 10% " << endl;
+				cout << endl;
+				positionLost(PD, PR,size,psa); //функция выявления не эфф.позиций
+				prindHeadings(); //заголовки полей
+				for(int i=0;i<sizeArrIdLost;i++){
+					int id = PR->idloss[i];
+					searchProduct(PD, size, id);//функция вывода данных по id
+				}
+				cout << endl;
+				cout << endl;
+				cout << " Для выхода в главное меню нажмите 0 " << endl;
+				break;
+			case 5:
+				cout << endl;
+				cout << endl;
+				cout << " ТРИ САМЫЕ ПОПУЛЯРНЫЕ ПОЗИЦИИ " << endl;
+				cout << endl;
+				cout << " *Оценка по количеству проданных шт. чистыми (продажи - возврат)* " << endl;
+				cout << endl;
+				mostPopular(PD, PR,size);//ф-я нахождения 3 самых популярных поз.
+				prindHeadings(); //заголовки полей
+				for(int i=0;i<3;i++){
+					int id = PR->idMostPop[i];
+					searchProduct(PD, size, id);//функция вывода данных по id
+				}
+				cout << endl;
+				cout << endl;
+				cout << " Для выхода в главное меню нажмите 0 " << endl;
+				break;
+			case 6:
+				cout << endl;
+				cout << endl;
+				cout << " ПОИСК ПОЗИЦИИ ПО АРТИКУЛУ " << endl;
+				cout << endl;
+				cout << " Введите артикул: ";
+				int id; cin >> id;
+				prindHeadings(); //заголовки полей
+				searchProduct(PD, size, id);//функция вывода данных по id
+				cout << endl;
+				cout << endl;
+				cout << " Для выхода в главное меню нажмите 0 " << endl;
+				break;
+			case 7:
+				cout << endl;
+				cout << endl;
+				cout << " ВЫВОД ДАННЫХ В ТЕКСТОВЫЙ ФАЙЛ " << endl;
+				cout << endl;
+				cout << endl;
+				cout << " Укажите путь и название выводимого файла ";
+				cin >> pathin;
+				ofstream in; //поток вывода в файл
+				in.open(pathin);
+				if(!in.is_open()){ 
+					cout << endl;
+					cout << endl;
+					cout << " Файл не был создан! " << endl; 
+				}else{
+					in << " " << "Артикул" << "\t";
+					in << "\t" << "Наименование";
+					in << " " << setw(15) << "Вес,кг" << " ";
+					in << " " << "Цена,р";
+					in << " " << "Продали,шт";
+					in << " " << "Возв.,шт";
+					in << " " << "Чист.пр,шт" << "  ";
+					in << "  " << "Возвр.%" << "\t";
+					in << "   " << "Т/О, р." << " ";
+					in << "   " << "Т/О, т." << " ";
+					in << "\r\n";
+
+					for (int i = 0; i<size-1; i++) {  //вывод основной информации
+						in << " " << data[i].id << "\t"; 
+						in << " " << setw(33) << data[i].name; 
+						in << " " << setw(7) << data[i].weight; 
+						in << " " << setw(7) << data[i].price; 
+						in << " " << setw(10) << data[i].sold; 
+						in << " " << setw(10) << data[i].returned; 
+						in << " " << setw(10) << data[i].cleanSold; 
+						in << " " << setw(12) <<data[i].percent; 
+						in << " " << setw(10) <<data[i].soldCost; 
+						in << " " << setw(10) <<data[i].soldWeight; 
+						in << "\r\n";
+					}
+					in << "\r\n";
+					in << "\r\n";
+					in << "   *В этот файл запишуться только обработанные данные! ";
+					in << "\r\n";
+					in << "\r\n";
+					if(report.salesCost >0){ //
+						in << " Общий товарооборот: ";
+						in << "\r\n";
+						in << " Стоимость: "; in << report.salesCost << " руб.";
+						in << "\r\n";
+						in << " Тоннаж: "; in << report.salesWeight << " т.";
+						in << "\r\n";
+					}
+					in << "\r\n";
+					if(report.costReturned >0){
+						in << " Общий возврат: ";
+						in << "\r\n";
+						in << " Стоимость: "; in << report.costReturned << " руб.";
+						in << "\r\n";
+						in << " Тоннаж: "; in << report.weightReturned << " т.";
+						in << "\r\n";
+						in << " Средний возврат: "; in << report.averPer << " %.";
+						in << "\r\n";
+					}
+					in << "\r\n";
+					if(report.idloss[0] >0){
+						in << " Позиции, у которых возврат более 10% ";
+						in << "\r\n";
+						in << "\r\n";
+						in << " " << "Артикул" << "\t";
+						in << "\t" << "Наименование";
+						in << " " << setw(15) << "Вес,кг" << " ";
+						in << " " << "Цена,р";
+						in << " " << "Продали,шт";
+						in << " " << "Возв.,шт";
+						in << " " << "Чист.пр,шт" << "  ";
+						in << "  " << "Возвр.%" << "\t";
+						in << "   " << "Т/О, р." << " ";
+						in << "   " << "Т/О, т." << " ";
+						in << "\r\n";
+						for(int j=0;j<sizeArrIdLost;j++){
+							for (int i = 0; i<size-1; i++) {
+								if(report.idloss[j] == data[i].id){
+									in << " " << data[i].id << "\t"; 
+									in << " " << setw(33) << data[i].name; 
+									in << " " << setw(7) << data[i].weight; 
+									in << " " << setw(7) << data[i].price; 
+									in << " " << setw(10) << data[i].sold; 
+									in << " " << setw(10) << data[i].returned; 
+									in << " " << setw(10) << data[i].cleanSold; 
+									in << " " << setw(12) <<data[i].percent; 
+									in << " " << setw(10) <<data[i].soldCost; 
+									in << " " << setw(10) <<data[i].soldWeight; 
+									in << "\r\n";
+								}
+							}
+						}
+					}
+					in << "\r\n";
+					in << "\r\n";
+
+					if(report.idMostPop[0] >0){
+						in << "\r\n";
+						in << "\r\n";
+						in << " Самые популярные позиции по версии чистых продаж:  ";
+						in << "\r\n";
+						in << "\r\n";
+						in << " " << "Артикул" << "\t";
+						in << "\t" << "Наименование";
+						in << " " << setw(15) << "Вес,кг" << " ";
+						in << " " << "Цена,р";
+						in << " " << "Продали,шт";
+						in << " " << "Возв.,шт";
+						in << " " << "Чист.пр,шт" << "  ";
+						in << "  " << "Возвр.%" << "\t";
+						in << "   " << "Т/О, р." << " ";
+						in << "   " << "Т/О, т." << " ";
+						in << "\r\n";
+						for(int j=0;j<3;j++){
+							for (int i = 0; i<size-1; i++) {
+								if(report.idMostPop[j] == data[i].id){
+									in << " " << data[i].id << "\t"; 
+									in << " " << setw(33) << data[i].name; 
+									in << " " << setw(7) << data[i].weight; 
+									in << " " << setw(7) << data[i].price; 
+									in << " " << setw(10) << data[i].sold; 
+									in << " " << setw(10) << data[i].returned; 
+									in << " " << setw(10) << data[i].cleanSold; 
+									in << " " << setw(12) <<data[i].percent; 
+									in << " " << setw(10) <<data[i].soldCost; 
+									in << " " << setw(10) <<data[i].soldWeight; 
+									in << "\r\n";
+								}
+							}
+						}
+					}
+					cout << endl;
+					cout << endl;
+					cout << " ФАЙЛ БЫЛ УСПЕШНО ЗАПИСАН!" << endl;
+					in.close();
+				}
+				cout << endl;
+				cout << endl;
+				cout << " Для выхода в главное меню нажмите 0 " << endl;
+				break;
+			}
+			cin >> choice;
+		}while(choice < 8);
+		cout << " Для выхода нажмите ENTER! " << endl;
+	}
+	delete [] data;
+	data = NULL;
+	_getch();
+	return 0;
+}
+//функция расчета суммарной отгрузки в рублях и тоннах
+void weightAndCost(product *arr, total *Report,int Size){
+	double cost = 0;
+	double weight = 0;
+	for(int i=0;i<Size-1;i++){
+		cost += arr[i].cleanSold * arr[i].price;
+		weight += arr[i].cleanSold * arr[i].weight;
+	}
+	Report->salesCost = cost;
+	Report->salesWeight = weight / 1000;
+}
+//функция расчета возврата в руб. и т.
+void sumReturned(product *arr, total *Report,int Size){
+	double cost = 0;
+	double weight = 0;
+	double per = 0;
+	for(int i=0;i<Size-1;i++){
+		cost += arr[i].returned * arr[i].price;
+		weight += arr[i].returned * arr[i].weight;
+		per += arr[i].percent;
+	}
+	Report->costReturned = cost; //стоимость возврата
+	Report->weightReturned = weight / 1000; //общий вес возврата
+	Report->averPer = per / (Size-1); //средний процент возврата
+}
+//функция определения самых не эффективных позиций
+void positionLost(product *arr, total *Report,int Size, int *newsize){
+	int counter = 0;
+	for(int i=0;i<Size-1;i++){
+		if(arr[i].percent > 10){
+			Report->idloss[counter] = arr[i].id;
+			counter++;
+		}
+	}
+	*newsize = counter; //передача по указателю размера массива с не эффективными...
+}
+//вывод информации по id
+void searchProduct(product *arr,int Size, int ID){
+	bool flag = FALSE;
+	int range = Size-1;
+	for(int i=0;i<range;i++){
+		if(arr[i].id == ID){
+			cout  << "  " << arr[i].id; 
+			cout  << " " << setw(35) << arr[i].name; 
+			cout << setw(7) << arr[i].weight; 
+			cout << setw(7) << arr[i].price; 
+			cout << setw(10) << arr[i].sold; 
+			cout << setw(10) << arr[i].returned; 
+		cout << setw(12) << arr[i].cleanSold; 
+		cout << setw(10) << arr[i].percent; 
+		cout << setw(12) << arr[i].soldCost; 
+		cout << setw(12) << arr[i].soldWeight; 
+		cout << endl;
+		    range = i; //остановка цикла
+			flag = FALSE;
+		}else{
+			flag = TRUE;
+		}
+	}
+	if(flag) cout  << "  Такого артикула нет в базе! " << endl;
+}
+//функция определяющая 3 наиболее популярные позиции
+void mostPopular(product *arr, total *Report,int Size){
+	double *newarr = new double [Size]; //массив для сортировки чистая отгрузка
+	int *newarrId = new int [Size]; //массив для хранения id
+	for(int i=0;i<Size-1;i++){
+		*(newarr+i) = arr[i].cleanSold; //заполнение чистой отгрузки
+		*(newarrId+i) = arr[i].id; //заполнение id
+	}
+	//сортировка массива методом выбора
+	//суть в том, что сортируем массив с чистой отгрузкой
+	// чем больше отгрузка тем меньше индекс элемента
+	// на основании этого переносим индексы в массиве id
+	double max = *newarr;
+	double path;
+	int pathId;
+	int counter = 0;
+	for(int i=0;i<Size-2;i++){
+		for(int j=i+1;j<Size-1;j++){
+			if(*(newarr+j) > *(newarr+i)){
+				path = *(newarr+i);
+				pathId = *(newarrId+i);
+				*(newarr+i) = *(newarr+j);
+				*(newarrId+i) = *(newarrId+j);
+				*(newarr+j) = path;
+				*(newarrId+j) = pathId;
+			}
+		}
+	}
+	//перенос 3 элементов массива с id в структуру
+	for(int i=0;i<3;i++) Report->idMostPop[i] = *(newarrId+i);
+}
+
